@@ -1,0 +1,52 @@
+#!/bin/sh
+
+if [ $# -lt 1 ]; then
+    echo "No image provided" 1>&2
+    echo "Usage: $0 <image>" 1>&2
+    exit 1
+fi
+
+IMAGE=$1
+OUTPUT_IMAGE="squared_${IMAGE}"
+
+MEAN_COLOR=$(convert ${IMAGE} -resize 1x1 txt:- | grep -Po "#[[:xdigit:]]{6}")
+WIDTH=$(identify -format "%w" ${IMAGE})
+HEIGHT=$(identify -format "%h" ${IMAGE})
+
+if [ $WIDTH -eq $HEIGHT ];
+then
+		cp "${IMAGE}" "${OUTPUT_IMAGE}"
+		exit 0
+fi
+
+if [ -z $HEIGHT ];
+then
+		echo "Failed to determine height of image"
+		exit 1
+fi
+
+if [ -z $WIDTH ];
+then
+		echo "Failed to determine width of image"
+		exit 1
+fi
+
+if [ $HEIGHT -ge $WIDTH ];
+then
+		VIEWPORT="%hx%h-%[fx:(h-w)/2]+0"
+fi
+
+if [ $WIDTH -ge $HEIGHT ];
+then
+		VIEWPORT="%wx%w-0-%[fx:(w-h)/2]"
+fi
+
+if [ -z ${VIEWPORT} ];
+then
+		echo "Could not set viewport sting"
+		exit 2
+fi
+
+convert "${IMAGE}" \
+		\( -clone 0 -virtual-pixel Background -background ${MEAN_COLOR} -set option:distort:viewport "${VIEWPORT}" -filter point -distort SRT 0 +repage -blur 0x5 \) \
+		+swap -gravity center -compose over -composite "squared_${IMAGE}"
